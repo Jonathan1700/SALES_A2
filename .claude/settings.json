@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(& \"d:\\\\Sales_A2 principal\\\\Sales_A2\\\\ent_sales_A2\\\\Scripts\\\\python.exe\" \"d:\\\\Sales_A2 principal\\\\Sales_A2\\\\manage.py\" check)"
+    ]
+  }
+}

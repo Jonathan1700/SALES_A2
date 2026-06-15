@@ -10,6 +10,7 @@ from .forms import (
     SignUpForm, BrandForm, ProductGroupForm, SupplierForm,
     ProductForm, CustomerForm, InvoiceForm, InvoiceDetailFormSet
 )
+from .mixins import ExportListMixin
 from decimal import Decimal
 
 # === REGISTRO ===
@@ -95,8 +96,55 @@ class SupplierDeleteView(LoginRequiredMixin, DeleteView):
 
 
 # === PRODUCT (CBV) ===
-class ProductListView(LoginRequiredMixin, ListView):
-    model = Product; template_name = 'billing/product_list.html'; context_object_name = 'items'
+class ProductListView(ExportListMixin, LoginRequiredMixin, ListView):
+    model = Product
+    template_name = 'billing/product_list.html'
+    context_object_name = 'items'
+    paginate_by = 3
+
+    export_title = 'Productos'
+    export_fields = [
+        ('Nombre', 'name'),
+        ('Marca', 'brand.name'),
+        ('Grupo', 'group.name'),
+        ('Precio', lambda o: f'{o.unit_price:.2f}'),
+        ('Stock', 'stock'),
+        ('Proveedores', lambda o: ', '.join(s.name for s in o.suppliers.all()) or '-'),
+        ('Estado', lambda o: 'Activo' if o.is_active else 'Inactivo'),
+    ]
+
+    def get_queryset(self):
+        qs = Product.objects.select_related('brand', 'group').prefetch_related('suppliers')
+        g = self.request.GET
+        if name := g.get('name', '').strip():
+            qs = qs.filter(name__icontains=name)
+        if brand := g.get('brand', ''):
+            qs = qs.filter(brand_id=brand)
+        if group := g.get('group', ''):
+            qs = qs.filter(group_id=group)
+        if price_min := g.get('price_min', '').strip():
+            qs = qs.filter(unit_price__gte=price_min)
+        if price_max := g.get('price_max', '').strip():
+            qs = qs.filter(unit_price__lte=price_max)
+        if stock_min := g.get('stock_min', '').strip():
+            qs = qs.filter(stock__gte=stock_min)
+        if stock_max := g.get('stock_max', '').strip():
+            qs = qs.filter(stock__lte=stock_max)
+        if (is_active := g.get('is_active', '')) in ('0', '1'):
+            qs = qs.filter(is_active=is_active == '1')
+        if supplier := g.get('supplier', ''):
+            qs = qs.filter(suppliers__id=supplier).distinct()
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['brands'] = Brand.objects.order_by('name')
+        ctx['groups'] = ProductGroup.objects.order_by('name')
+        ctx['suppliers'] = Supplier.objects.order_by('name')
+        params = self.request.GET.copy()
+        params.pop('page', None)
+        ctx['search_params'] = params.urlencode()
+        return ctx
 class ProductCreateView(LoginRequiredMixin, CreateView):
     model = Product; form_class = ProductForm; template_name = 'billing/product_form.html'; success_url = reverse_lazy('billing:product_list')
 class ProductUpdateView(LoginRequiredMixin, UpdateView):
