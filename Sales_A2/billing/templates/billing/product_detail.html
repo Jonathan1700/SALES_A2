@@ -1,0 +1,85 @@
+{% extends 'billing/base.html' %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <h2 class="mb-0">Detalle del producto</h2>
+  <a href="{% url 'billing:product_list' %}" class="btn btn-outline-secondary">&laquo; Volver al listado</a>
+</div>
+
+<div class="card shadow-sm border-0">
+  <div class="card-body p-4">
+    <div class="row g-4 align-items-start">
+
+      <!-- Columna izquierda: imagen -->
+      <div class="col-12 col-lg-5 text-center">
+        {% if product.image %}
+          <img src="{{ product.image.url }}" alt="{{ product.name }}"
+               class="img-fluid rounded shadow-sm"
+               style="max-height:380px;object-fit:contain;">
+        {% else %}
+          <div class="d-flex flex-column align-items-center justify-content-center
+                      bg-light rounded border text-muted py-5">
+            <span class="display-6">🛍️</span>
+            <span class="mt-2">Sin imagen</span>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- Columna derecha: datos -->
+      <div class="col-12 col-lg-7">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <h3 class="mb-0">{{ product.name }}</h3>
+          {% if product.is_active %}
+            <span class="badge bg-success">Activo</span>
+          {% else %}
+            <span class="badge bg-secondary">Inactivo</span>
+          {% endif %}
+        </div>
+
+        <p class="text-muted">
+          {% if product.description %}{{ product.description }}{% else %}Sin descripción.{% endif %}
+        </p>
+
+        <hr>
+
+        <dl class="row mb-0">
+          <dt class="col-sm-4 text-muted">Marca</dt>
+          <dd class="col-sm-8">{{ product.brand.name }}</dd>
+
+          <dt class="col-sm-4 text-muted">Grupo</dt>
+          <dd class="col-sm-8">{{ product.group.name }}</dd>
+
+          <dt class="col-sm-4 text-muted">Precio unitario</dt>
+          <dd class="col-sm-8"><span class="fs-5 fw-semibold text-primary">${{ product.unit_price }}</span></dd>
+
+          <dt class="col-sm-4 text-muted">Stock</dt>
+          <dd class="col-sm-8">{{ product.stock }} unidad(es)</dd>
+
+          <dt class="col-sm-4 text-muted">Proveedores</dt>
+          <dd class="col-sm-8">
+            {% for s in product.suppliers.all %}
+              <span class="badge bg-info text-dark">{{ s.name }}</span>
+            {% empty %}
+              <span class="text-muted">—</span>
+            {% endfor %}
+          </dd>
+
+          <dt class="col-sm-4 text-muted">Creado</dt>
+          <dd class="col-sm-8">{{ product.created_at|date:"d/m/Y H:i" }}</dd>
+
+          <dt class="col-sm-4 text-muted">Actualizado</dt>
+          <dd class="col-sm-8">{{ product.updated_at|date:"d/m/Y H:i" }}</dd>
+        </dl>
+
+        <div class="d-flex gap-2 mt-4">
+          <a href="{% url 'billing:product_update' product.pk %}" class="btn btn-warning">Editar</a>
+          <a href="{% url 'billing:product_list' %}" class="btn btn-outline-secondary">Regresar</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% endblock %}

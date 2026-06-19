@@ -47,8 +47,13 @@ class ExportListMixin:
         stamp = timezone.localtime().strftime('%Y%m%d_%H%M')
         return f'{base}_{stamp}'.replace(' ', '_')
 
+    def get_export_fields(self):
+        """Fuente de columnas a exportar. Las vistas pueden sobreescribirla
+        para devolver dinámicamente solo las columnas visibles."""
+        return self.export_fields
+
     def get_export_headers(self):
-        return [header for header, _ in self.export_fields]
+        return [header for header, _ in self.get_export_fields()]
 
     def resolve_value(self, obj, accessor):
         """Resuelve el valor de una celda a partir del accessor."""
@@ -67,8 +72,9 @@ class ExportListMixin:
     def get_export_rows(self):
         """Genera las filas (lista de listas de strings) a partir del queryset filtrado."""
         rows = []
+        fields = self.get_export_fields()
         for obj in self.get_queryset():
-            rows.append([str(self.resolve_value(obj, acc)) for _, acc in self.export_fields])
+            rows.append([str(self.resolve_value(obj, acc)) for _, acc in fields])
         return rows
 
     # ------------------------------------------------------------------ #
@@ -132,16 +138,36 @@ class ExportListMixin:
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = f'attachment; filename="{self.get_export_filename()}.pdf"'
 
+        header_texts = self.get_export_headers()
+        ncols = len(header_texts) or 1
+
+        # --- Adaptación automática según número de columnas ---
+        # Pocas columnas -> vertical (aprovecha el ancho centrando).
+        # Muchas columnas -> horizontal (landscape) + fuente más pequeña.
+        landscape_mode = ncols > 4
+        pagesize = landscape(A4) if landscape_mode else A4
+        if ncols <= 4:
+            font_size = 10
+        elif ncols <= 7:
+            font_size = 8
+        elif ncols <= 9:
+            font_size = 7
+        else:
+            font_size = 6
+        margin = 1.2 * cm
+
         doc = SimpleDocTemplate(
-            response, pagesize=landscape(A4),
-            leftMargin=1.2 * cm, rightMargin=1.2 * cm,
-            topMargin=1.2 * cm, bottomMargin=1.2 * cm,
+            response, pagesize=pagesize,
+            leftMargin=margin, rightMargin=margin,
+            topMargin=margin, bottomMargin=margin,
         )
 
         styles = getSampleStyleSheet()
-        cell_style = ParagraphStyle('cell', parent=styles['Normal'], fontSize=8, leading=10)
+        cell_style = ParagraphStyle('cell', parent=styles['Normal'],
+                                    fontSize=font_size, leading=font_size + 2)
         head_style = ParagraphStyle('cellHead', parent=styles['Normal'],
-                                    fontSize=8, leading=10, textColor=colors.white, fontName='Helvetica-Bold')
+                                    fontSize=font_size, leading=font_size + 2,
+                                    textColor=colors.white, fontName='Helvetica-Bold')
 
         elements = [
             Paragraph(self.get_export_title(), styles['Title']),
@@ -152,12 +178,17 @@ class ExportListMixin:
             Spacer(1, 0.4 * cm),
         ]
 
-        headers = [Paragraph(h, head_style) for h in self.get_export_headers()]
+        headers = [Paragraph(h, head_style) for h in header_texts]
         data = [headers]
         for row in self.get_export_rows():
             data.append([Paragraph(value, cell_style) for value in row])
 
-        table = Table(data, repeatRows=1)
+        # Ancho proporcional: reparte el ancho disponible entre las columnas
+        # visibles para que la tabla quede centrada y aproveche el espacio.
+        avail_width = pagesize[0] - 2 * margin
+        col_widths = [avail_width / ncols] * ncols
+
+        table = Table(data, colWidths=col_widths, repeatRows=1, hAlign='CENTER')
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#343A40')),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#CCCCCC')),

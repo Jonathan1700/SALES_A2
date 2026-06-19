@@ -1,10 +1,15 @@
 {% extends 'billing/base.html' %}
+{% load static %}
 {% block title %}Productos{% endblock %}
 {% block content %}
 
-<div class="d-flex justify-content-between align-items-center mb-3">
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
   <h2 class="mb-0">Productos</h2>
-  <div class="d-flex gap-2">
+  <div class="d-flex gap-2 flex-wrap">
+    <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#columnsModal">
+      <i class="bi"></i> Seleccionar columnas
+      <span class="badge bg-primary ms-1">{{ visible_count }}/{{ total_columns }}</span>
+    </button>
     <a href="?{{ search_params }}{% if search_params %}&{% endif %}export=pdf"
        class="btn btn-outline-danger">Listado PDF</a>
     <a href="?{{ search_params }}{% if search_params %}&{% endif %}export=excel"
@@ -111,24 +116,44 @@
       <table class="table table-striped table-hover align-middle mb-0">
         <thead class="table-dark">
           <tr>
-            <th>Nombre</th>
-            <th>Marca</th>
-            <th>Grupo</th>
-            <th>Precio</th>
-            <th>Stock</th>
-            <th>Proveedores</th>
-            <th>Estado</th>
+            {% if 'image' in visible_columns %}<th>Imagen</th>{% endif %}
+            {% if 'name' in visible_columns %}<th>Nombre</th>{% endif %}
+            {% if 'description' in visible_columns %}<th>Descripción</th>{% endif %}
+            {% if 'brand' in visible_columns %}<th>Marca</th>{% endif %}
+            {% if 'group' in visible_columns %}<th>Grupo</th>{% endif %}
+            {% if 'price' in visible_columns %}<th>Precio</th>{% endif %}
+            {% if 'stock' in visible_columns %}<th>Stock</th>{% endif %}
+            {% if 'balance' in visible_columns %}<th class="text-end">Balance</th>{% endif %}
+            {% if 'suppliers' in visible_columns %}<th>Proveedores</th>{% endif %}
+            {% if 'is_active' in visible_columns %}<th>Estado</th>{% endif %}
+            {% if 'created_at' in visible_columns %}<th>Fecha creación</th>{% endif %}
             <th class="text-end">Acciones</th>
           </tr>
         </thead>
         <tbody>
           {% for item in items %}
           <tr>
-            <td>{{ item.name }}</td>
-            <td>{{ item.brand.name }}</td>
-            <td>{{ item.group.name }}</td>
-            <td>${{ item.unit_price }}</td>
-            <td>{{ item.stock }}</td>
+            {% if 'image' in visible_columns %}
+            <td>
+              {% if item.image %}
+                <img src="{{ item.image.url }}" alt="{{ item.name }}"
+                     class="rounded border" style="width:48px;height:48px;object-fit:cover;">
+              {% else %}
+                <img src="{% static 'billing/img/no-image.svg' %}" alt="Sin imagen"
+                     class="rounded border" style="width:48px;height:48px;object-fit:cover;" title="Sin imagen">
+              {% endif %}
+            </td>
+            {% endif %}
+            {% if 'name' in visible_columns %}<td>{{ item.name }}</td>{% endif %}
+            {% if 'description' in visible_columns %}
+            <td class="text-muted small">{{ item.description|default:"—"|truncatechars:60 }}</td>
+            {% endif %}
+            {% if 'brand' in visible_columns %}<td>{{ item.brand.name }}</td>{% endif %}
+            {% if 'group' in visible_columns %}<td>{{ item.group.name }}</td>{% endif %}
+            {% if 'price' in visible_columns %}<td>${{ item.unit_price }}</td>{% endif %}
+            {% if 'stock' in visible_columns %}<td>{{ item.stock }}</td>{% endif %}
+            {% if 'balance' in visible_columns %}<td class="text-end fw-semibold text-success">${{ item.balance }}</td>{% endif %}
+            {% if 'suppliers' in visible_columns %}
             <td>
               {% for s in item.suppliers.all %}
                 <span class="badge bg-info text-dark">{{ s.name }}</span>
@@ -136,6 +161,8 @@
                 <span class="text-muted">—</span>
               {% endfor %}
             </td>
+            {% endif %}
+            {% if 'is_active' in visible_columns %}
             <td>
               {% if item.is_active %}
                 <span class="badge bg-success">Activo</span>
@@ -143,14 +170,19 @@
                 <span class="badge bg-secondary">Inactivo</span>
               {% endif %}
             </td>
+            {% endif %}
+            {% if 'created_at' in visible_columns %}
+            <td class="small text-muted">{{ item.created_at|date:"d/m/Y H:i" }}</td>
+            {% endif %}
             <td class="text-end text-nowrap">
+              <a href="{% url 'billing:product_detail' item.pk %}" class="btn btn-sm btn-info">Ver detalle</a>
               <a href="{% url 'billing:product_update' item.pk %}" class="btn btn-sm btn-warning">Editar</a>
               <a href="{% url 'billing:product_delete' item.pk %}" class="btn btn-sm btn-danger">Eliminar</a>
             </td>
           </tr>
           {% empty %}
           <tr>
-            <td colspan="8" class="text-center text-muted py-4">No se encontraron productos.</td>
+            <td colspan="{{ visible_count|add:1 }}" class="text-center text-muted py-4">No se encontraron productos.</td>
           </tr>
           {% endfor %}
         </tbody>
@@ -207,5 +239,89 @@
   </p>
 </div>
 {% endif %}
+
+<!-- Modal: selección de columnas visibles -->
+<div class="modal fade" id="columnsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content border-0 shadow">
+      <form method="get" id="columnsForm">
+        <!-- Conserva filtros activos al aplicar columnas -->
+        {% for k, v in filter_items %}
+          <input type="hidden" name="{{ k }}" value="{{ v }}">
+        {% endfor %}
+
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title">Campos visibles</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <span class="text-muted small" id="colCounter">
+              Mostrando {{ visible_count }} de {{ total_columns }} columnas
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAllCols">
+              Seleccionar todo
+            </button>
+          </div>
+
+          <div class="row g-2">
+            {% for col in column_defs %}
+            <div class="col-12 col-sm-6 col-md-4">
+              <div class="form-check border rounded px-3 py-2 h-100">
+                <input class="form-check-input col-check" type="checkbox" name="columns"
+                       value="{{ col.key }}" id="col_{{ col.key }}"
+                       {% if col.visible %}checked{% endif %}>
+                <label class="form-check-label w-100" for="col_{{ col.key }}">{{ col.label }}</label>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+
+          <div class="text-danger small mt-2 d-none" id="colWarning">
+            Debe quedar al menos una columna visible.
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <a href="?{% if search_params %}{{ search_params }}&{% endif %}reset_columns=1"
+             class="btn btn-outline-danger me-auto">Restablecer configuración</a>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="applyCols">Aplicar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const form = document.getElementById('columnsForm');
+  if (!form) return;
+  const checks = Array.from(form.querySelectorAll('.col-check'));
+  const counter = document.getElementById('colCounter');
+  const warning = document.getElementById('colWarning');
+  const applyBtn = document.getElementById('applyCols');
+  const selectAll = document.getElementById('selectAllCols');
+  const total = checks.length;
+
+  function refresh() {
+    const n = checks.filter(c => c.checked).length;
+    counter.textContent = 'Mostrando ' + n + ' de ' + total + ' columnas';
+    const invalid = n === 0;                 // mínimo obligatorio: 1
+    warning.classList.toggle('d-none', !invalid);
+    applyBtn.disabled = invalid;
+    selectAll.textContent = (n === total) ? 'Quitar todo' : 'Seleccionar todo';
+  }
+
+  checks.forEach(c => c.addEventListener('change', refresh));
+  selectAll.addEventListener('click', function () {
+    const target = checks.some(c => !c.checked);   // si falta alguno -> marcar todos
+    checks.forEach(c => { c.checked = target; });
+    refresh();
+  });
+  refresh();
+})();
+</script>
 
 {% endblock %}

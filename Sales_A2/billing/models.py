@@ -1,4 +1,5 @@
 from django.db import models
+from decimal import Decimal
 
 class Brand(models.Model):
     """Marcas de productos."""
@@ -45,6 +46,7 @@ class Product(models.Model):
     """Productos. FK a Brand/Group, M2M a Supplier."""
     name = models.CharField(max_length=200, verbose_name='Nombre de producto')
     description = models.TextField(blank=True, null=True, verbose_name='Descripción')
+    image = models.ImageField(upload_to='products/', blank=True, null=True, verbose_name='Imagen')
     brand = models.ForeignKey(Brand, on_delete=models.PROTECT, related_name='products', verbose_name='Marca')
     group = models.ForeignKey(ProductGroup, on_delete=models.PROTECT, related_name='products', verbose_name='Grupo')
     suppliers = models.ManyToManyField(Supplier, related_name='products', blank=True, verbose_name='Proveedores')
@@ -58,6 +60,12 @@ class Product(models.Model):
         verbose_name_plural = 'Productos'
         ordering = ['name']
     def __str__(self): return f'{self.name} ({self.brand.name})'
+
+    @property
+    def balance(self):
+        """Valor del inventario = precio unitario × stock (calculado, no se almacena)."""
+        price = self.unit_price or Decimal('0')
+        return (price * (self.stock or 0)).quantize(Decimal('0.01'))
 
 class Customer(models.Model):
     """Clientes. OneToOne con CustomerProfile."""

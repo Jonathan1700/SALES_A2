@@ -56,19 +56,67 @@ class SupplierForm(forms.ModelForm):
 
 
 class ProductForm(forms.ModelForm):
+    """Formulario centralizado de Producto: widgets, estilos, ayudas y validación.
+
+    Toda la configuración visual y de validación vive aquí (no en las vistas),
+    para que ProductCreateView y ProductUpdateView la reutilicen sin duplicar."""
+
     class Meta:
         model = Product
-        fields = ['name', 'description', 'brand', 'group', 'suppliers', 'unit_price', 'stock', 'is_active']
+        fields = ['name', 'description', 'image', 'brand', 'group', 'suppliers', 'unit_price', 'stock', 'is_active']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
-            'description': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'name': forms.TextInput(attrs={
+                'class': 'form-control', 'placeholder': 'Ej. Teclado mecánico RGB',
+            }),
+            'description': forms.Textarea(attrs={
+                'class': 'form-control', 'rows': 3,
+                'placeholder': 'Descripción opcional del producto...',
+            }),
+            'image': forms.ClearableFileInput(attrs={
+                'class': 'form-control', 'accept': 'image/*', 'id': 'id_image',
+            }),
             'brand': forms.Select(attrs={'class': 'form-select'}),
             'group': forms.Select(attrs={'class': 'form-select'}),
-            'suppliers': forms.SelectMultiple(attrs={'class': 'form-select'}),
-            'unit_price': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'stock': forms.NumberInput(attrs={'class': 'form-control'}),
+            'suppliers': forms.SelectMultiple(attrs={'class': 'form-select', 'size': 4}),
+            'unit_price': forms.NumberInput(attrs={
+                'class': 'form-control', 'step': '0.01', 'min': '0.01',
+                'placeholder': '0.00', 'id': 'id_unit_price',
+            }),
+            'stock': forms.NumberInput(attrs={
+                'class': 'form-control', 'min': '0', 'placeholder': '0', 'id': 'id_stock',
+            }),
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
+        help_texts = {
+            'name': 'Nombre con el que se identifica el producto.',
+            'image': 'Formatos de imagen (JPG, PNG, WEBP). Opcional.',
+            'suppliers': 'Mantén Ctrl para seleccionar varios proveedores.',
+            'unit_price': 'Debe ser mayor que cero. Ej. 10.50',
+            'stock': 'Cantidad disponible en inventario.',
+        }
+        error_messages = {
+            'name': {'required': 'El nombre del producto es obligatorio.'},
+            'brand': {'required': 'Selecciona una marca.'},
+            'group': {'required': 'Selecciona un grupo.'},
+            'unit_price': {
+                'required': 'El precio unitario es obligatorio.',
+                'invalid': 'Ingresa un valor numérico válido.',
+            },
+            'stock': {'invalid': 'El stock debe ser un número entero.'},
+        }
+
+    def clean_unit_price(self):
+        """Validación de servidor: precio estrictamente mayor que cero."""
+        price = self.cleaned_data.get('unit_price')
+        if price is not None and price <= 0:
+            raise forms.ValidationError('El precio unitario debe ser mayor que cero.')
+        return price
+
+    def clean_stock(self):
+        stock = self.cleaned_data.get('stock')
+        if stock is not None and stock < 0:
+            raise forms.ValidationError('El stock no puede ser negativo.')
+        return stock
 
 
 class CustomerForm(forms.ModelForm):

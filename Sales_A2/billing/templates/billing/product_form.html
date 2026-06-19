@@ -1,42 +1,177 @@
 {% extends 'billing/base.html' %}
-{% load widget_tweaks %}
+{% load static %}
 {% block title %}Producto{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-  <div class="col-lg-7 col-md-9">
-    <div class="card shadow-sm border-0">
-      <div class="card-header bg-primary text-white py-3">
-        <h4 class="mb-0">Producto</h4>
-      </div>
-      <div class="card-body p-4">
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% if form.non_field_errors %}
-            <div class="alert alert-danger">{{ form.non_field_errors }}</div>
-          {% endif %}
-          {% for field in form %}
-            {% if field.field.widget.input_type == 'checkbox' %}
-              <div class="form-check form-switch mb-3">
-                {% render_field field class="form-check-input" %}
-                <label class="form-check-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {% for error in field.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
-              </div>
-            {% else %}
-              <div class="mb-3">
-                <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                {% render_field field class="form-control" %}
-                {% if field.help_text %}<small class="text-muted d-block mt-1">{{ field.help_text }}</small>{% endif %}
-                {% for error in field.errors %}<div class="text-danger small mt-1">{{ error }}</div>{% endfor %}
-              </div>
-            {% endif %}
-          {% endfor %}
-          <div class="d-flex gap-2 mt-4">
-            <button type="submit" class="btn btn-primary px-4">Guardar</button>
-            <a href="{% url 'billing:product_list' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h2 class="mb-0">{% if form.instance.pk %}Editar producto{% else %}Nuevo producto{% endif %}</h2>
+  <a href="{% url 'billing:product_list' %}" class="btn btn-outline-secondary">&laquo; Volver al listado</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" novalidate id="productForm">
+  {% csrf_token %}
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+  {% endif %}
+
+  <div class="row g-4">
+
+    <!-- ===== Columna izquierda: información ===== -->
+    <div class="col-12 col-lg-7">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-primary text-white py-3">
+          <h5 class="mb-0">Información del producto</h5>
+        </div>
+        <div class="card-body p-4">
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+            {{ form.name }}
+            {% if form.name.help_text %}<small class="text-muted d-block mt-1">{{ form.name.help_text }}</small>{% endif %}
+            {% for e in form.name.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
           </div>
-        </form>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="{{ form.brand.id_for_label }}">{{ form.brand.label }}</label>
+              {{ form.brand }}
+              {% for e in form.brand.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="{{ form.group.id_for_label }}">{{ form.group.label }}</label>
+              {{ form.group }}
+              {% for e in form.group.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="row g-3 mt-0">
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="{{ form.unit_price.id_for_label }}">{{ form.unit_price.label }}</label>
+              <div class="input-group">
+                <span class="input-group-text">$</span>
+                {{ form.unit_price }}
+              </div>
+              {% if form.unit_price.help_text %}<small class="text-muted d-block mt-1">{{ form.unit_price.help_text }}</small>{% endif %}
+              {% for e in form.unit_price.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+              <div class="text-danger small mt-1 d-none" id="priceClientError">
+                El precio unitario debe ser mayor que cero.
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label fw-semibold" for="{{ form.stock.id_for_label }}">{{ form.stock.label }}</label>
+              {{ form.stock }}
+              {% if form.stock.help_text %}<small class="text-muted d-block mt-1">{{ form.stock.help_text }}</small>{% endif %}
+              {% for e in form.stock.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="mb-3 mt-3">
+            <label class="form-label fw-semibold" for="{{ form.suppliers.id_for_label }}">{{ form.suppliers.label }}</label>
+            {{ form.suppliers }}
+            {% if form.suppliers.help_text %}<small class="text-muted d-block mt-1">{{ form.suppliers.help_text }}</small>{% endif %}
+            {% for e in form.suppliers.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold" for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+            {{ form.description }}
+            {% for e in form.description.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+
+          <div class="form-check form-switch">
+            {{ form.is_active }}
+            <label class="form-check-label fw-semibold" for="{{ form.is_active.id_for_label }}">{{ form.is_active.label }}</label>
+          </div>
+
+        </div>
       </div>
     </div>
+
+    <!-- ===== Columna derecha: imagen + resumen ===== -->
+    <div class="col-12 col-lg-5">
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0">Imagen</h5>
+        </div>
+        <div class="card-body p-4 text-center">
+          <img id="imagePreview"
+               src="{% if form.instance.image %}{{ form.instance.image.url }}{% else %}{% static 'billing/img/no-image.svg' %}{% endif %}"
+               alt="Vista previa"
+               class="rounded border mb-3"
+               style="width:220px;height:220px;object-fit:cover;max-width:100%;">
+          <div class="text-start">
+            <label class="form-label fw-semibold" for="{{ form.image.id_for_label }}">{{ form.image.label }}</label>
+            {{ form.image }}
+            {% if form.image.help_text %}<small class="text-muted d-block mt-1">{{ form.image.help_text }}</small>{% endif %}
+            {% for e in form.image.errors %}<div class="text-danger small mt-1">{{ e }}</div>{% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-light py-3">
+          <h5 class="mb-0">Resumen</h5>
+        </div>
+        <div class="card-body p-4">
+          <label class="form-label fw-semibold">Balance (Precio × Stock)</label>
+          <div class="input-group input-group-lg">
+            <span class="input-group-text bg-success text-white">$</span>
+            <input type="text" id="balanceDisplay" class="form-control bg-light fw-bold text-success"
+                   value="0.00" readonly>
+          </div>
+          <small class="text-muted d-block mt-2">Se calcula automáticamente. No se almacena.</small>
+        </div>
+      </div>
+    </div>
+
   </div>
-</div>
+
+  <div class="d-flex gap-2 mt-4">
+    <button type="submit" class="btn btn-primary px-4">Guardar</button>
+    <a href="{% url 'billing:product_list' %}" class="btn btn-outline-secondary px-4">Cancelar</a>
+  </div>
+</form>
+
+<script>
+(function () {
+  const priceInput = document.getElementById('id_unit_price');
+  const stockInput = document.getElementById('id_stock');
+  const balanceOut = document.getElementById('balanceDisplay');
+  const priceError = document.getElementById('priceClientError');
+  const imageInput = document.getElementById('id_image');
+  const preview    = document.getElementById('imagePreview');
+
+  function money(n) {
+    return n.toLocaleString('es-EC', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function recalc() {
+    const price = parseFloat(priceInput.value) || 0;
+    const stock = parseInt(stockInput.value, 10) || 0;
+    balanceOut.value = money(price * stock);
+    // Validación inmediata del precio (> 0)
+    const invalid = priceInput.value !== '' && price <= 0;
+    priceError.classList.toggle('d-none', !invalid);
+    priceInput.classList.toggle('is-invalid', invalid);
+  }
+
+  if (priceInput && stockInput) {
+    priceInput.addEventListener('input', recalc);
+    stockInput.addEventListener('input', recalc);
+    recalc();
+  }
+
+  // Vista previa inmediata de la imagen seleccionada
+  if (imageInput && preview) {
+    imageInput.addEventListener('change', function () {
+      const file = this.files && this.files[0];
+      if (file) {
+        preview.src = URL.createObjectURL(file);
+      }
+    });
+  }
+})();
+</script>
+
 {% endblock %}
